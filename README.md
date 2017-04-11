@@ -1,24 +1,19 @@
-## gl-stats
+## regltf
 
-WebGL stats.
+gltf with regl.
 
 ## Install
 
 ```bash
-npm install gl-stats
+npm install regltf
 ```
 
 ## Usage
 
 ```javascript
-let stats = new glstats(document.body);
-
-function render() {
-  stats.tick();
-  requestAnimationFrame(render);
-}
-
-render();
+regltf.load(regl, './your/gltf/file.gltf', (err, result) => {
+  console.log(result);
+});
 ```
 
 ## License
