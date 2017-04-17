@@ -27,11 +27,13 @@ module.exports = {
   moduleName,
   banner,
   external: [
+    'memop',
     'vmath',
     'scene-graph',
     'WebGLRenderingContext',
   ],
   globals: {
+    'memop': 'window.memop',
     'vmath': 'window.vmath',
     'scene-graph': 'window.sgraph',
     'WebGLRenderingContext': 'window.WebGLRenderingContext',

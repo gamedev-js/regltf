@@ -565,6 +565,10 @@ map-obj@^1.0.0, map-obj@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/map-obj/-/map-obj-1.0.1.tgz#d933ceb9205d82bdcf4886f6742bdc2b4dea146d"
 
+memop@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/memop/-/memop-1.1.0.tgz#ab61680eb74a869deeaf65ce8719717f5254629f"
+
 meow@^3.1.0:
   version "3.7.0"
   resolved "https://registry.yarnpkg.com/meow/-/meow-3.7.0.tgz#72cb668b425228290abbfa856892587308a801fb"
@@ -1091,9 +1095,9 @@ verror@1.3.6:
   dependencies:
     extsprintf "1.0.2"
 
-vmath@^1.0.1, vmath@^1.1.1:
-  version "1.1.3"
-  resolved "https://registry.yarnpkg.com/vmath/-/vmath-1.1.3.tgz#43527ee451a299c5cb00a071bd1a2d5b6490c02a"
+vmath@^1.0.1, vmath@^1.1.1, vmath@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/vmath/-/vmath-1.2.0.tgz#71991031f8e9458189709a64d95b18bb07f5b662"
 
 window-size@0.1.0:
   version "0.1.0"

@@ -26,6 +26,8 @@
   },
   "homepage": "https://github.com/gamedev-js/regltf/issues",
   "dependencies": {
+    "memop": "^1.1.0",
+    "vmath": "^1.2.0"
   },
   "devDependencies": {
     "debug-draw": "^1.0.0",
