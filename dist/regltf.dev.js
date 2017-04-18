@@ -5,8 +5,17 @@
  * Released under the MIT License.
  */
 
-(function (exports,sceneGraph,vmath) {
+(function (exports,memop,sceneGraph,vmath) {
 'use strict';
+
+let f32a_m4_pool = new memop.FramePool(function() {
+  return new Float32Array(16);
+}, 256);
+
+/**
+ * (c) 2016 Mikola Lysenko. MIT License
+ * https://github.com/regl-project/resl
+ */
 
 /* global XMLHttpRequest */
 const configParameters = [
@@ -467,6 +476,8 @@ var builtinPrograms = {
 
       precision mediump float;
       uniform sampler2D u_mainTexture;
+      uniform vec2 u_mainTextureTiling;
+      uniform vec2 u_mainTextureOffset;
 
       varying vec2 v_uv0;
 
@@ -474,7 +485,9 @@ var builtinPrograms = {
         // gl_FragColor = vec4( 1, 1, 1, 1 );
         // gl_FragColor = vec4( v_uv0.x, v_uv0.y, 0, 1 );
 
-        gl_FragColor = texture2D( u_mainTexture, v_uv0 );
+        vec2 uv0 = v_uv0 * u_mainTextureTiling + u_mainTextureOffset;
+
+        gl_FragColor = texture2D( u_mainTexture, uv0 );
 
         if (!gl_FrontFacing) {
           gl_FragColor *= 0.05;
@@ -598,6 +611,12 @@ var builtinTechniques = {
       mainTexture: {
         type: GL.SAMPLER_2D,
       },
+      mainTextureTiling: {
+        type: GL.FLOAT_VEC2,
+      },
+      mainTextureOffset: {
+        type: GL.FLOAT_VEC2,
+      },
     },
 
     attributes: {
@@ -611,6 +630,8 @@ var builtinTechniques = {
       // view: 'view',
       // projection: 'projection',
       u_mainTexture: 'mainTexture',
+      u_mainTextureTiling: 'mainTextureTiling',
+      u_mainTextureOffset: 'mainTextureOffset',
     },
   },
 
@@ -690,6 +711,28 @@ for (let name in builtinTechniques) {
   _techniques[name] = builtinTechniques[name];
 }
 
+function _walk(scene, fn) {
+  scene.nodes.forEach(node => {
+    fn(node);
+    sceneGraph.utils.walk(node, child => {
+      fn(child);
+    });
+  });
+}
+
+function _replace(scene, oldNode, newNode) {
+  if (oldNode._parent) {
+    return sceneGraph.utils.replace(oldNode, newNode);
+  }
+
+  for (let i = 0; i < scene.nodes.length; ++i) {
+    if (scene.nodes[i] === oldNode) {
+      scene.nodes[i] = newNode;
+      return;
+    }
+  }
+}
+
 function _serializeCommands(regl, json, commands) {
   for ( let techID in _techniques ) {
     let gltfTechnique = _techniques[techID];
@@ -728,7 +771,7 @@ function _serializeCommands(regl, json, commands) {
   }
 }
 
-function _serializeNodes(json, out, parent, childrenIDs) {
+function _serializeNodes(json, parent, childrenIDs, out) {
   childrenIDs.forEach(nodeID => {
     let gltfNode = json.nodes[nodeID];
     let node = new sceneGraph.Node(gltfNode.name);
@@ -761,7 +804,7 @@ function _serializeNodes(json, out, parent, childrenIDs) {
     node._extras = gltfNode.extras;
 
     if (gltfNode.children) {
-      _serializeNodes(json, node.children, node, gltfNode.children);
+      _serializeNodes(json, node, gltfNode.children, node.children);
     }
 
     out.push(node);
@@ -770,7 +813,7 @@ function _serializeNodes(json, out, parent, childrenIDs) {
   return out;
 }
 
-function _serializeJoint(json, joints, parent, id) {
+function _serializeJoint(json, parent, id, joints) {
   let node = joints[id];
   if (node) {
     if (parent) {
@@ -814,7 +857,7 @@ function _serializeJoint(json, joints, parent, id) {
 
   if (gltfNode.children) {
     gltfNode.children.forEach(childNodeID => {
-      _serializeJoint(json, joints, node, childNodeID);
+      _serializeJoint(json, node, childNodeID, joints);
     });
   }
 }
@@ -919,18 +962,64 @@ function _serializeBuffers(regl, json, buffers, callback) {
   });
 }
 
-function _serializeGLTF(regl, json, callback) {
+function _serializePrefabs(regl, json, scene, prefabs, callback) {
+  if (!json.extras || !json.extras.prefabs) {
+    if (callback) {
+      callback(null, prefabs);
+    }
+
+    return;
+  }
+
+  let count = 0;
+  let manifest = {};
+  for (let id in json.extras.prefabs) {
+    let asset = json.extras.prefabs[id];
+    manifest[id] = {
+      type: 'text',
+      src: `${json.baseURL}/${asset.uri}`,
+      parser: JSON.parse
+    };
+    ++count;
+  }
+
+  resl({
+    manifest,
+    onError(err) {
+      console.error(err);
+    },
+    onDone(assets) {
+      for ( let id in assets ) {
+        let url = manifest[id].src;
+        let prefabJson = assets[id];
+
+        let idx = url.lastIndexOf('/');
+        if (idx !== -1) {
+          prefabJson.baseURL = url.substring(0, idx);
+        } else {
+          prefabJson.baseURL = url;
+        }
+
+        _serializeGLTF(regl, prefabJson, scene, (err, result) => {
+          prefabs[id] = result;
+
+          --count;
+          if (count === 0 && callback) {
+            callback(null, prefabs);
+          }
+        });
+      }
+    }
+  });
+}
+
+function _serializeGLTF(regl, json, scene, callback) {
   let gltfScene = json.scenes[json.scene];
-  let scene = {
+  let result = {
     name: gltfScene.name,
     json: json,
     nodes: [],
     joints: {},
-    techniques: {},
-    programs: {},
-    textures: {}, // texture id to regl texture
-    buffers: {},  // buffer-view id to regl buffer
-    commands: {}, // technique id to regl command
   };
 
   // update programs & techinques
@@ -941,21 +1030,30 @@ function _serializeGLTF(regl, json, callback) {
     _techniques[name] = json.techniques[name];
   }
 
-  // serialize programs & techniques
+  // serialize gltf globally
   scene.programs = _programs;
   scene.techniques = _techniques;
+  for ( let id in json.meshes ) {
+    scene.meshes[id] = json.meshes[id];
+  }
+  for ( let id in json.materials ) {
+    scene.materials[id] = json.materials[id];
+  }
+  for ( let id in json.accessors ) {
+    scene.accessors[id] = json.accessors[id];
+  }
 
   // serialize commands
   _serializeCommands(regl, json, scene.commands);
 
   // serialize nodes
-  _serializeNodes(json, scene.nodes, null, gltfScene.nodes);
+  _serializeNodes(json, null, gltfScene.nodes, result.nodes);
 
   // serialize joints
   for (let id in json.nodes) {
     let node = json.nodes[id];
     if (node.jointName) {
-      _serializeJoint(json, scene.joints, null, id);
+      _serializeJoint(json, null, id, result.joints);
     }
   }
 
@@ -965,8 +1063,32 @@ function _serializeGLTF(regl, json, callback) {
   // serialize buffers
   _serializeBuffers(regl, json, scene.buffers);
 
+  // serialize extras.prefabs
+  _serializePrefabs(regl, json, scene, scene.prefabs, (err, prefabs) => {
+    _walk(result, child => {
+      if (child._extras && child._extras.prefab) {
+        let prefabID = child._extras.prefab;
+        let prefab = prefabs[prefabID];
+        let root = prefab.nodes[0];
+        let prefabNode = root.deepClone((newNode, oldNode) => {
+          newNode._meshes = oldNode._meshes;
+          newNode._skeletons = oldNode._skeletons;
+          newNode._skin = oldNode._skin;
+          newNode._extras = oldNode._extras;
+        });
+        vmath.vec3.copy(prefabNode.lpos, child.lpos);
+        vmath.vec3.copy(prefabNode.lscale, child.lscale);
+        vmath.quat.copy(prefabNode.lrot, child.lrot);
+
+        _replace(result, child, prefabNode);
+
+        scene._dirty = true;
+      }
+    });
+  });
+
   // done
-  callback(null, scene);
+  callback(null, result);
 }
 
 function load (regl, url, callback) {
@@ -986,7 +1108,39 @@ function load (regl, url, callback) {
       } else {
         assets.json.baseURL = url;
       }
-      _serializeGLTF(regl, assets.json, callback);
+
+      let scene = {
+        _dirty: false,
+
+        //
+        name: '',
+        json: '',
+        nodes: [],
+        joints: {},
+
+        // gltf (global)
+        techniques: {},
+        programs: {},
+        meshes: {},
+        materials: {},
+        accessors: {},
+
+        // resources
+        textures: {}, // texture id to regl texture
+        buffers: {},  // buffer-view id to regl buffer
+        prefabs: {}, // serialized prefabs
+        commands: {}, // technique id to regl command
+      };
+      _serializeGLTF(regl, assets.json, scene, (err,result) => {
+        scene.name = result.name;
+        scene.json = result.json;
+        scene.nodes = result.nodes;
+        scene.joints = result.joints;
+
+        if (callback) {
+          callback(null, scene);
+        }
+      });
     },
 
     onError(err) {
@@ -998,6 +1152,7 @@ function load (regl, url, callback) {
 
 const GL$1 = WebGLRenderingContext.prototype;
 let m4_a = vmath.mat4.create();
+
 function _type2buffersize(type) {
   if (type === 'SCALAR') {
     return 1;
@@ -1039,10 +1194,8 @@ function _mode2primitive(mode) {
 }
 
 function buildCommandData(scene, node, gltfPrimitive) {
-  let json = scene.json;
-
   // get material & technique
-  let gltfMaterial = json.materials[gltfPrimitive.material];
+  let gltfMaterial = scene.materials[gltfPrimitive.material];
   // let techID = useSkin ? gltfMaterial.technique + '_skinning' : gltfMaterial.technique;
   let techID = gltfMaterial.technique;
   let tech = scene.techniques[techID];
@@ -1065,7 +1218,7 @@ function buildCommandData(scene, node, gltfPrimitive) {
       return;
     }
 
-    let accessor = json.accessors[accessorID];
+    let accessor = scene.accessors[accessorID];
     data.attributes[attrName] = {
       buffer: scene.buffers[accessor.bufferView],
       offset: accessor.byteOffset,
@@ -1103,7 +1256,7 @@ function buildCommandData(scene, node, gltfPrimitive) {
 
   // get indices accessor
   if (gltfPrimitive.indices) {
-    let accessor = json.accessors[gltfPrimitive.indices];
+    let accessor = scene.accessors[gltfPrimitive.indices];
     data.elements = scene.buffers[accessor.bufferView];
     data.offset = accessor.byteOffset;
     data.count = accessor.count;
@@ -1113,10 +1266,7 @@ function buildCommandData(scene, node, gltfPrimitive) {
 
   // node uniforms
   node.getWorldMatrix(m4_a);
-
-  let arr = new Float32Array(16);
-  vmath.mat4.array(arr, m4_a);
-  data.uniforms.model = arr;
+  data.uniforms.model = vmath.mat4.array(f32a_m4_pool.alloc(), m4_a);
 
   // if (bonesTexture) {
   //   info.uniforms.u_bonesTexture = bonesTexture;
@@ -1126,8 +1276,13 @@ function buildCommandData(scene, node, gltfPrimitive) {
   return data;
 }
 
+function reset() {
+  f32a_m4_pool.reset();
+}
+
+exports.reset = reset;
 exports.load = load;
 exports.buildCommandData = buildCommandData;
 
-}((this.regltf = this.regltf || {}),window.sgraph,window.vmath));
+}((this.regltf = this.regltf || {}),window.memop,window.sgraph,window.vmath));
 //# sourceMappingURL=regltf.dev.js.map
