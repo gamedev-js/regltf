@@ -577,7 +577,7 @@ var builtinPrograms = {
   }
 };
 
-const GL = WebGLRenderingContext.prototype;
+const GL$1 = WebGLRenderingContext.prototype;
 
 var builtinTechniques = {
   diffuse: {
@@ -585,37 +585,37 @@ var builtinTechniques = {
     program: 'diffuse',
     parameters: {
       position: {
-        type: GL.FLOAT_VEC3,
+        type: GL$1.FLOAT_VEC3,
         semantic: 'POSITION'
       },
       normal: {
-        type: GL.FLOAT_VEC3,
+        type: GL$1.FLOAT_VEC3,
         semantic: 'NORMAL'
       },
       uv0: {
-        type: GL.FLOAT_VEC2,
+        type: GL$1.FLOAT_VEC2,
         semantic: 'TEXCOORD_0'
       },
       model: {
-        type: GL.FLOAT_MAT4,
+        type: GL$1.FLOAT_MAT4,
         semantic: 'MODEL'
       },
       view: {
-        type: GL.FLOAT_MAT4,
+        type: GL$1.FLOAT_MAT4,
         semantic: 'VIEW'
       },
       projection: {
-        type: GL.FLOAT_MAT4,
+        type: GL$1.FLOAT_MAT4,
         semantic: 'PROJECTION'
       },
       mainTexture: {
-        type: GL.SAMPLER_2D,
+        type: GL$1.SAMPLER_2D,
       },
       mainTextureTiling: {
-        type: GL.FLOAT_VEC2,
+        type: GL$1.FLOAT_VEC2,
       },
       mainTextureOffset: {
-        type: GL.FLOAT_VEC2,
+        type: GL$1.FLOAT_VEC2,
       },
     },
 
@@ -640,45 +640,45 @@ var builtinTechniques = {
     program: 'diffuse_skinning',
     parameters: {
       position: {
-        type: GL.FLOAT_VEC3,
+        type: GL$1.FLOAT_VEC3,
         semantic: 'POSITION'
       },
       normal: {
-        type: GL.FLOAT_VEC3,
+        type: GL$1.FLOAT_VEC3,
         semantic: 'NORMAL'
       },
       uv0: {
-        type: GL.FLOAT_VEC2,
+        type: GL$1.FLOAT_VEC2,
         semantic: 'TEXCOORD_0'
       },
       joint: {
-        type: GL.FLOAT_VEC4,
+        type: GL$1.FLOAT_VEC4,
         semantic: 'JOINT'
       },
       weight: {
-        type: GL.FLOAT_VEC4,
+        type: GL$1.FLOAT_VEC4,
         semantic: 'WEIGHT'
       },
       model: {
-        type: GL.FLOAT_MAT4,
+        type: GL$1.FLOAT_MAT4,
         semantic: 'MODEL'
       },
       view: {
-        type: GL.FLOAT_MAT4,
+        type: GL$1.FLOAT_MAT4,
         semantic: 'VIEW'
       },
       projection: {
-        type: GL.FLOAT_MAT4,
+        type: GL$1.FLOAT_MAT4,
         semantic: 'PROJECTION'
       },
       mainTexture: {
-        type: GL.SAMPLER_2D,
+        type: GL$1.SAMPLER_2D,
       },
       bonesTexture: {
-        type: GL.SAMPLER_2D,
+        type: GL$1.SAMPLER_2D,
       },
       bonesTextureSize: {
-        type: GL.FLOAT,
+        type: GL$1.FLOAT,
       },
     },
 
@@ -701,6 +701,8 @@ var builtinTechniques = {
   },
 };
 
+const GL = WebGLRenderingContext.prototype;
+
 let _programs = {};
 for (let name in builtinPrograms) {
   _programs[name] = builtinPrograms[name];
@@ -711,11 +713,42 @@ for (let name in builtinTechniques) {
   _techniques[name] = builtinTechniques[name];
 }
 
+function _gl2reglWrapMode(wrap) {
+  if (wrap === GL.REPEAT) {
+    return 'repeat';
+  } else if (wrap === GL.CLAMP_TO_EDGE) {
+    return 'clamp';
+  } else if (wrap === GL.MIRRORED_REPEAT) {
+    return 'mirror';
+  }
+
+  return 'repeat';
+}
+
+function _gl2reglFilter(filter) {
+  if (filter === GL.NEAREST) {
+    return 'nearest';
+  } else if (filter === GL.LINEAR) {
+    return 'linear';
+  } else if (filter === GL.LINEAR_MIPMAP_LINEAR) {
+    return 'linear mipmap linear';
+  } else if (filter === GL.NEAREST_MIPMAP_LINEAR) {
+    return 'nearest mipmap linear';
+  } else if (filter === GL.LINEAR_MIPMAP_NEAREST) {
+    return 'linear mipmap nearest';
+  } else if (filter === GL.NEAREST_MIPMAP_NEAREST) {
+    return 'nearest mipmap nearest';
+  }
+
+  return 'nearest mipmap linear';
+}
+
 function _walk(scene, fn) {
   scene.nodes.forEach(node => {
     fn(node);
+
     sceneGraph.utils.walk(node, child => {
-      fn(child);
+      return fn(child);
     });
   });
 }
@@ -864,14 +897,14 @@ function _serializeJoint(json, parent, id, joints) {
 
 function _serializeTextures(regl, json, textures, callback) {
   let manifest = {};
+  let samplers = {};
 
   for ( let name in json.textures ) {
     let gltfTexture = json.textures[name];
     let gltfImage = json.images[gltfTexture.source];
-    // TODO:
-    // let gltfSampler = json.sampler[gltfTexture.sampler];
 
     textures[name] = regl.texture();
+    samplers[name] = json.samplers[gltfTexture.sampler];
     manifest[name] = {
       type: 'image',
       src: `${json.baseURL}/${gltfImage.uri}`
@@ -885,12 +918,14 @@ function _serializeTextures(regl, json, textures, callback) {
     },
     onDone(assets) {
       for (let name in assets) {
+        let gltfSampler = samplers[name];
+
         textures[name]({
           data: assets[name],
-          wrapS: 'repeat',
-          wrapT: 'repeat',
-          mag: 'linear',
-          min: 'mipmap',
+          wrapS: _gl2reglWrapMode(gltfSampler.wrapS || GL.REPEAT),
+          wrapT: _gl2reglWrapMode(gltfSampler.wrapT || GL.REPEAT),
+          mag: _gl2reglFilter(gltfSampler.magFilter || GL.LINEAR),
+          min: _gl2reglFilter(gltfSampler.minFilter || GL.NEAREST_MIPMAP_LINEAR),
           mipmap: 'nice',
           flipY: true
         });
@@ -1066,6 +1101,7 @@ function _serializeGLTF(regl, json, scene, callback) {
   // serialize extras.prefabs
   _serializePrefabs(regl, json, scene, scene.prefabs, (err, prefabs) => {
     _walk(result, child => {
+      console.log(child.name);
       if (child._extras && child._extras.prefab) {
         let prefabID = child._extras.prefab;
         let prefab = prefabs[prefabID];
@@ -1083,7 +1119,11 @@ function _serializeGLTF(regl, json, scene, callback) {
         _replace(result, child, prefabNode);
 
         scene._dirty = true;
+
+        return false; // stop walking on child
       }
+
+      return true;
     });
   });
 
@@ -1150,7 +1190,7 @@ function load (regl, url, callback) {
   });
 }
 
-const GL$1 = WebGLRenderingContext.prototype;
+const GL$2 = WebGLRenderingContext.prototype;
 let m4_a = vmath.mat4.create();
 
 function _type2buffersize(type) {
@@ -1174,19 +1214,19 @@ function _type2buffersize(type) {
 }
 
 function _mode2primitive(mode) {
-  if (mode === GL$1.POINTS) {
+  if (mode === GL$2.POINTS) {
     return 'points';
-  } else if (mode === GL$1.LINES) {
+  } else if (mode === GL$2.LINES) {
     return 'lines';
-  } else if (mode === GL$1.LINE_LOOP) {
+  } else if (mode === GL$2.LINE_LOOP) {
     return 'line loop';
-  } else if (mode === GL$1.LINE_STRIP) {
+  } else if (mode === GL$2.LINE_STRIP) {
     return 'line strip';
-  } else if (mode === GL$1.TRIANGLES) {
+  } else if (mode === GL$2.TRIANGLES) {
     return 'triangles';
-  } else if (mode === GL$1.TRIANGLE_STRIP) {
+  } else if (mode === GL$2.TRIANGLE_STRIP) {
     return 'triangle strip';
-  } else if (mode === GL$1.TRIANGLE_FAN) {
+  } else if (mode === GL$2.TRIANGLE_FAN) {
     return 'triangle fan';
   }
 
@@ -1236,7 +1276,7 @@ function buildCommandData(scene, node, gltfPrimitive) {
 
     let value = gltfMaterial.values[paramName];
     if (value !== undefined) {
-      if (param.type === GL$1.SAMPLER_2D) {
+      if (param.type === GL$2.SAMPLER_2D) {
         data.uniforms[name] = scene.textures[value];
       } else {
         data.uniforms[name] = value;
@@ -1246,7 +1286,7 @@ function buildCommandData(scene, node, gltfPrimitive) {
 
     // use default value
     if (param.value !== undefined) {
-      if (param.type === GL$1.SAMPLER_2D) {
+      if (param.type === GL$2.SAMPLER_2D) {
         data.uniforms[name] = scene.textures[param.value];
       } else {
         data.uniforms[name] = value;

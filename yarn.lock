@@ -2,6 +2,10 @@
 # yarn lockfile v1
 
 
+"@types/node@^7.0.18":
+  version "7.0.18"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-7.0.18.tgz#cd67f27d3dc0cfb746f0bdd5e086c4c5d55be173"
+
 ajv@^4.9.1:
   version "4.11.5"
   resolved "https://registry.yarnpkg.com/ajv/-/ajv-4.11.5.tgz#b6ee74657b993a01dce44b7944d56f485828d5bd"
@@ -230,10 +234,11 @@ electron-download@^3.0.1:
     semver "^5.3.0"
     sumchecker "^1.2.0"
 
-electron@^1.6.6:
-  version "1.6.6"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-1.6.6.tgz#17df8cdf73ec2c04cfad7abb413579b8b8dafc28"
+electron@^1.7.1:
+  version "1.7.1"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-1.7.1.tgz#a93b8abd1fd6df794839d8602903aacbce74d388"
   dependencies:
+    "@types/node" "^7.0.18"
     electron-download "^3.0.1"
     extract-zip "^1.0.3"
 
@@ -899,13 +904,7 @@ safe-buffer@^5.0.1:
   version "5.0.1"
   resolved "https://registry.yarnpkg.com/safe-buffer/-/safe-buffer-5.0.1.tgz#d263ca54696cd8a306b5ca6551e92de57918fbe7"
 
-scene-graph@^1.0.2:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/scene-graph/-/scene-graph-1.0.2.tgz#bf5279d48b49e3f29d18628e09ed03696702641b"
-  dependencies:
-    vmath "^1.0.1"
-
-scene-graph@^1.0.3:
+scene-graph@^1.0.2, scene-graph@^1.0.3:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/scene-graph/-/scene-graph-1.0.3.tgz#de0cd34e3e8a08c905907ee4471e64acaf60d7d2"
   dependencies:
@@ -954,6 +953,10 @@ spdx-expression-parse@~1.0.0:
 spdx-license-ids@^1.0.2:
   version "1.2.2"
   resolved "https://registry.yarnpkg.com/spdx-license-ids/-/spdx-license-ids-1.2.2.tgz#c9df7a3424594ade6bd11900d596696dc06bac57"
+
+spectorjs@^0.0.10:
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/spectorjs/-/spectorjs-0.0.10.tgz#b2b445fbdebdf10107ec49a4124dccc80687607c"
 
 speedometer@~0.1.2:
   version "0.1.4"
@@ -1101,7 +1104,7 @@ verror@1.3.6:
   dependencies:
     extsprintf "1.0.2"
 
-vmath@^1.0.1, vmath@^1.1.0, vmath@^1.1.1, vmath@^1.2.0:
+vmath@^1.1.0, vmath@^1.1.1, vmath@^1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/vmath/-/vmath-1.2.0.tgz#71991031f8e9458189709a64d95b18bb07f5b662"
 
@@ -1109,13 +1112,9 @@ window-size@0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/window-size/-/window-size-0.1.0.tgz#5438cd2ea93b202efa3a19fe8887aee7c94f9c9d"
 
-wordwrap@0.0.2:
+wordwrap@0.0.2, wordwrap@~0.0.2:
   version "0.0.2"
   resolved "https://registry.yarnpkg.com/wordwrap/-/wordwrap-0.0.2.tgz#b79669bb42ecb409f83d583cad52ca17eaa1643f"
-
-wordwrap@~0.0.2:
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/wordwrap/-/wordwrap-0.0.3.tgz#a3d5da6cd5c0bc0008d37234bbaf1bed63059107"
 
 wrappy@1:
   version "1.0.2"

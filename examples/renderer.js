@@ -1,5 +1,9 @@
 'use strict';
 
+// var SPECTOR = require('spectorjs');
+// var spector = new SPECTOR.Spector();
+// spector.displayUI();
+
 let lstats = new window.LStats(document.body);
 
 const ddraw = window.ddraw;
