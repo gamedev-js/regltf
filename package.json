@@ -5,7 +5,7 @@
   "main": "dist/regltf",
   "scripts": {
     "build:dev": "rollup -c ./script/rollup.config.js",
-    "build:min": "uglifyjs ./dist/regltf.dev.js --mangle --source-map ./dist/regltf.min.js.map -o ./dist/regltf.min.js",
+    "build:min": "uglifyjs ./dist/regltf.dev.js --mangle --source-map url=regltf.min.js.map -o ./dist/regltf.min.js",
     "release": "npm run build:dev && npm run build:min",
     "start": "electron",
     "server": "preview -p 8002 -e examples",
@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "debug-draw": "^1.0.0",
-    "electron": "^1.7.1",
+    "electron": "^1.7.3",
     "fs-jetpack": "^0.13.0",
     "lstats.js": "^1.2.2",
     "preview-server": "^1.0.7",
@@ -40,7 +40,7 @@
     "rollup": "^0.41.4",
     "rollup-watch": "^3.2.2",
     "spectorjs": "^0.0.10",
-    "uglify-js": "git+https://github.com/mishoo/UglifyJS2.git#harmony",
+    "uglify-es": "^3.0.15",
     "vconsole": "^2.5.2"
   }
 }
